@@ -1,56 +1,66 @@
-import "./App.css";
-import { useState } from "react";
-import confetti from "canvas-confetti";
-import { Square } from "./components/Square.jsx";
-import { TURNS } from "./constants.js";
-import { checkWinnerFrom, checkEndGame } from "./logic/board.js";
-import { WinnerModal } from "./components/WinnerModal.jsx";
+import './App.css';
+import { useState } from 'react';
+import { Square } from './components/Square.jsx';
+import { TURNS } from './constants.js';
+import { checkWinnerFrom, checkEndGame } from './logic/board.js';
+import { WinnerModal } from './components/WinnerModal.jsx';
+import { saveGameToStorage, resetGameStorage } from './logic/storage/index.js';
+import { launchWinConfetti, launchTieConfetti } from './utils/confetti.js';
+import { ResetButton } from './components/ResetButton.jsx';
+import { TurnDisplay } from './components/TurnDisplay.jsx';
+import { Board } from './components/Board.jsx';
 
 function App() {
-  const [board, setBoard] = useState(Array(9).fill(null));
-  const [turn, setTurn] = useState(TURNS.X);
+  // Estado inicial del tablero obtenido de localStorage o array vacío
+  const [board, setBoard] = useState(() => {
+    const boardFromStorage = window.localStorage.getItem('board');
+    return boardFromStorage ? JSON.parse(boardFromStorage) : Array(9).fill(null);
+  });
+
+  // Estado inicial del turno obtenido de localStorage o turno X
+  const [turn, setTurn] = useState(() => {
+    const turnFromStorage = window.localStorage.getItem('turn');
+    return turnFromStorage ? turnFromStorage : TURNS.X;
+  });
+
   const [winner, setWinner] = useState(null); // null es que no hay ganador y false es que hay empate
 
+  // Función para reiniciar el juego y limpiar localStorage
   const resetGame = () => {
     setBoard(Array(9).fill(null));
     setWinner(null);
     setTurn(TURNS.X);
+    resetGameStorage();
   };
 
+  // Función para actualizar el tablero al hacer clic en una casilla
   const updateBoard = (index) => {
-    // No se puede jugar en una celda ocupada
-    if (board[index] || winner) return;
-    // Actualizar el tablero
+    if (board[index] || winner) return; // Evitar sobrescribir casillas ocupadas o jugar si ya hay ganador
+
     const newBoard = [...board];
     newBoard[index] = turn;
     setBoard(newBoard);
-    // Cambiar el turno
+
     const newTurn = turn === TURNS.X ? TURNS.O : TURNS.X;
+    saveGameToStorage({ board: newBoard, turn: newTurn }); // Guardar partida en localStorage
     setTurn(newTurn);
-    // Revisar si hay un ganador
-    const newWinner = checkWinnerFrom(newBoard);
+
+    const newWinner = checkWinnerFrom(newBoard); // Verificar ganador
     if (newWinner) {
-      confetti;
-      setWinner(newWinner); // actualiza el estado
-    } else if (checkEndGame(newBoard)) {
-      setWinner(false); // Empate
+      launchWinConfetti();
+      setWinner(newWinner);
+    } else if (checkEndGame(newBoard)) { // Verificar empate
+      launchTieConfetti();
+      setWinner(false);
     }
   };
+
   return (
-    <main className="board">
+    <main className='board'>
       <h1>Tic Tac Toe</h1>
-      <button onClick={resetGame}>Reiniciar</button>
-      <section className="game">
-        {board.map((__, index) => (
-          <Square key={index} index={index} updateBoard={updateBoard}>
-            {board[index]}
-          </Square>
-        ))}
-      </section>
-      <section className="turn">
-        <Square isSelected={turn === TURNS.X}>{TURNS.X}</Square>
-        <Square isSelected={turn === TURNS.O}>{TURNS.O}</Square>
-      </section>
+      <ResetButton resetGame={resetGame} />
+      <Board board={board} updateBoard={updateBoard} />
+      <TurnDisplay turn={turn} />
       <WinnerModal winner={winner} resetGame={resetGame} />
     </main>
   );
